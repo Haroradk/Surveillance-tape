@@ -203,7 +203,12 @@ the *official* run per day (the latest completed one). Re-running a day with `--
 run and moves the pointer; nothing is overwritten in place.
 
 Safeguards:
-- **Idempotent.** Days with an official run are skipped, which is why the 09:23 retry is harmless.
+- **Idempotent and self-healing.** Days with an official run are skipped, which is why the 09:23
+  retry is harmless. Scheduled runs look back 7 days, so a day missed by an outage fills itself in.
+  (The first scheduled runs failed on a missing repository secret; 25–27 September were then
+  backfilled by hand, which this now does automatically.)
+- **Failure reasons on the summary page.** Errors and a missing `GEMINI_API_KEY` are printed as
+  GitHub annotations, so they show on the run summary without opening the logs.
 - **Loud failure.** A day whose files aren't published yet is recorded as `source_missing`, and the
   job exits non-zero. A failed retry run opens a GitHub issue. The first scheduled attempt doesn't,
   because Binance is sometimes just late.
@@ -217,7 +222,7 @@ one incident a +2.3% move at 38x the normal size for that hour). Every minute of
 Binance's candles exactly.
 
 ```bash
-python run_daily.py                          # yesterday
+python run_daily.py                          # yesterday, plus any missed day in the week before
 python run_daily.py --date 2026-09-24 --days 7   # backfill a week (skips done days)
 python run_daily.py --date 2026-09-24 --force    # re-run a day
 ```
