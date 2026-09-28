@@ -54,7 +54,7 @@ The default day is **2025-10-10**, the big liquidation evening: BTC traded 115k 
 | 4 | Daily batch job (GitHub Actions), bronze retention | done |
 | 5 | Daily briefing: SQL evidence per incident + one Gemini call per day | done |
 | 6 | Streamlit dashboard, updated daily | done: https://haroradk-surveillance-tape.streamlit.app |
-| 7 | Signal research: do these patterns predict anything? Backtests on history only | next |
+| 7 | Signal research: do these patterns predict anything? Backtests on history only | done: they predict size, not direction |
 
 This is a learning project about the consumption side of market data: detection, explanation, and
 later signal research. It never places or recommends trades.
@@ -288,6 +288,53 @@ After the day is processed, `src/briefing.py` writes the briefing:
 Output: `gold.daily_briefings` (one per day, with the exact evidence the model saw) and
 `gold.incident_briefs` (one per incident).
 
+## Signal research: the alerts predict how much the price moves, never which way
+
+`scripts/signal_research.py` asks the question the algo developers asked every day: does anything the
+surveillance sees predict what happens next? It's an event study over 61 processed days
+(2026-07-29 to 09-27, 1,787 alerts):
+
+- **No look-ahead.** Each forward return starts at the first full minute after the pipeline detected
+  the alert, the earliest moment anyone could have acted.
+- **Controls.** Each event is compared with 20 minutes for the same coin, at the same hour of day, on
+  other days, with no alert within an hour.
+- **Discovery and holdout.** The first 40 days are for looking and the last 21 for checking. A
+  pattern counts only if it survives the holdout.
+- **Cost check.** A round trip costs about 0.2%. An effect smaller than that isn't an edge, even for
+  a project that never trades.
+
+**Q1: are later moves bigger? Yes, and the holdout confirms it.** Mean absolute return after the alert
+vs control minutes:
+
+| Rule | Set | n | 5 min | 15 min | 60 min |
+|---|---|---:|---|---|---|
+| volume_burst | discovery | 709 | 0.17% vs 0.07% | 0.27% vs 0.11% | 0.52% vs 0.21% |
+| volume_burst | holdout | 275 | 0.23% vs 0.07% | 0.33% vs 0.12% | 0.47% vs 0.22% |
+| one_sided_flow | holdout | 148 | 0.13% vs 0.07% | 0.20% vs 0.11% | 0.37% vs 0.20% |
+| price_shock | holdout | 52 | 0.38% vs 0.07% | 0.50% vs 0.11% | 0.58% vs 0.20% |
+
+After an alert, the next hour moves 2 to 3.5 times more than normal for that time of day. This is
+volatility clustering, one of the best-known facts about markets. It's useful for risk: widen limits,
+expect bigger swings.
+
+**Q2: does the flow's direction predict the move's direction? No.** After one-sided flow, "going the
+flow's way" averaged between −0.05% and +0.03% at every horizon. Every 95% confidence interval includes
+zero, and hit rates were 42 to 54%. Knowing who was aggressive tells you nothing about where the price
+goes next.
+
+**Q3: after a price shock, momentum or reversal? Neither.** The discovery period hinted at momentum
+over 60 minutes (+0.16%, confidence interval touching zero). On the holdout the sign flipped (−0.05%).
+That's the classic trap a holdout exists to catch: a pattern found by looking, gone on data nobody
+looked at. It would also have been below the 0.2% cost.
+
+**Conclusion.** The surveillance rules work as a volatility detector and carry no directional signal.
+A negative result, honestly reached, is the normal outcome of signal research. It's also what an algo
+team would want to know before building anything on these alerts.
+
+Caveats: alerts cluster in time, so events aren't independent and the confidence intervals are
+narrower than they should be. 61 days is one market regime. The controls match hour of day but not
+day of week.
+
 ## Dashboard
 
 `streamlit run app.py`. It shows the day's briefing and each coin's close and range against a normal
@@ -384,6 +431,7 @@ run_daily.py         the daily job (production): yesterday, or a range of days
 src/daily.py         daily job steps, ops.daily_runs audit log, bronze retention
 src/briefing.py      evidence SQL, prompt + schema, validation, budget guard, catch-up
 src/llm.py           the one Gemini call site (timeout, retries, structured output)
+scripts/signal_research.py   event study: do alerts predict size or direction? (history only)
 app.py               Streamlit dashboard (briefing, chart, incidents, pipeline audit)
 .github/workflows/daily.yml   runs the daily job on GitHub Actions
 live.py              runs replayer + silver + rules as three processes for one run
