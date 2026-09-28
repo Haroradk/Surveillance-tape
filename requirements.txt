@@ -6,3 +6,5 @@ requests
 python-dotenv
 google-genai
 tenacity
+streamlit
+plotly

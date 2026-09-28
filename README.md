@@ -26,7 +26,7 @@ The default day is **2025-10-10**, the big liquidation evening: BTC traded 115k 
 | 3b | Daily reference profile, rules recalibrated on 5 days and checked on 6 unseen days | done |
 | 4 | Daily batch job (GitHub Actions), bronze retention | done |
 | 5 | Daily briefing: SQL evidence per incident + one Gemini call per day | done |
-| 6 | Streamlit dashboard, updated daily | next |
+| 6 | Streamlit dashboard, updated daily | done (local); deploy to Streamlit Cloud |
 | 7 | Signal research: do these patterns predict anything? Backtests on history only | |
 
 This is a learning project about the consumption side of market data: detection, explanation, and
@@ -261,6 +261,18 @@ After the day is processed, `src/briefing.py` writes the briefing:
 Output: `gold.daily_briefings` (one per day, with the exact evidence the model saw) and
 `gold.incident_briefs` (one per incident).
 
+## Dashboard
+
+`streamlit run app.py`. It shows the day's briefing and each coin's close and range against a normal
+day, a price chart per coin with incidents shaded, and one card per incident: the LLM's
+title/narrative, whether it was market-wide, its pattern, and the key evidence (move, size vs
+normal, sell-initiated share, largest trade, alert timeline, full evidence JSON). A second tab shows
+the pipeline itself: incidents per day, the `ops.daily_runs` audit log and `ops.llm_calls`. It reads
+only the official run per day and never writes.
+
+Deploy on Streamlit Community Cloud from this repo (main file `app.py`), with `MOTHERDUCK_TOKEN` and
+`MOTHERDUCK_DATABASE = "tape"` in the app's secrets.
+
 ## Demo: running live as three processes on MotherDuck
 
 ```
@@ -345,6 +357,7 @@ run_daily.py         the daily job (production): yesterday, or a range of days
 src/daily.py         daily job steps, ops.daily_runs audit log, bronze retention
 src/briefing.py      evidence SQL, prompt + schema, validation, budget guard, catch-up
 src/llm.py           the one Gemini call site (timeout, retries, structured output)
+app.py               Streamlit dashboard (briefing, chart, incidents, pipeline audit)
 .github/workflows/daily.yml   runs the daily job on GitHub Actions
 live.py              runs replayer + silver + rules as three processes for one run
 replay.py            CLI: replay a day into bronze
