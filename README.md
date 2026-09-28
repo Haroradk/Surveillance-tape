@@ -9,6 +9,31 @@ metrics are trades.
 
 The agent explains moves; it never suggests trades.
 
+## Why this project exists: from the pipeline to the people who use it
+
+In trading, I built the data pipelines. Algo developers took the data from there and turned it into
+models and signals. I knew the data was correct and on time. What happened to it afterwards was
+someone else's job.
+
+This project follows the data one step further, onto the consumption side. The first half is data
+engineering I know well: ingestion, checksums, medallion layers, reconciliation against the source,
+retention and an audit log. The second half is the work the consumers did, and it's where the new
+lessons came from:
+
+- **What is "normal"?** The first rules compared the last minute with the last 30 minutes and found
+  over 100 incidents on a quiet day. A reference profile per hour of day, built from the previous
+  week, cut that to 0 to 3.
+- **Calibrate, then test on data the thresholds haven't seen.** Thresholds were tuned on 5 days and
+  checked on 6 others. That's the basic discipline behind every signal an algo developer ships.
+- **No look-ahead.** The reference for a day never uses that day. Every alert is kept, including the
+  ones that led nowhere, because a backtest that only sees the winners is lying.
+- **Facts from SQL, words from the model.** The LLM writes the briefing from evidence the pipeline
+  measured. When it got a fact wrong (market-wide or not), the fix was to take that decision away
+  from it.
+
+The last phase, signal research, asks the question the algo developers asked every day: does any of
+this predict what happens next? It's answered on history only. Nothing here trades.
+
 ## Data
 
 [Binance public market data](https://github.com/binance/binance-public-data): every spot trade,
@@ -28,8 +53,8 @@ The default day is **2025-10-10**, the big liquidation evening: BTC traded 115k 
 | 3b | Daily reference profile, rules recalibrated on 5 days and checked on 6 unseen days | done |
 | 4 | Daily batch job (GitHub Actions), bronze retention | done |
 | 5 | Daily briefing: SQL evidence per incident + one Gemini call per day | done |
-| 6 | Streamlit dashboard, updated daily | done (local); deploy to Streamlit Cloud |
-| 7 | Signal research: do these patterns predict anything? Backtests on history only | |
+| 6 | Streamlit dashboard, updated daily | done: https://haroradk-surveillance-tape.streamlit.app |
+| 7 | Signal research: do these patterns predict anything? Backtests on history only | next |
 
 This is a learning project about the consumption side of market data: detection, explanation, and
 later signal research. It never places or recommends trades.
