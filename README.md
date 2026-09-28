@@ -1,6 +1,6 @@
 # Surveillance tape
 
-Live dashboard: https://haroradk-surveillance-tape.streamlit.app (repo: `tape-watch`)
+Live dashboard: https://haroradk-surveillance-tape.streamlit.app (repo: `Surveillance-tape`)
 
 A learning project: replay real days of crypto trades as if they were a live feed, detect unusual
 market moves with simple rules, group them into incidents, and have an LLM write a daily briefing

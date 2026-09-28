@@ -68,7 +68,7 @@ labels = {d: f"{pd.Timestamp(d):%a %d %b %Y} · {n} incident{'s' if n != 1 else 
           for d, n in zip(days["trade_date"], days["incidents"])}
 day = st.sidebar.radio("Day", list(labels), format_func=labels.get)
 run_id = days.loc[days["trade_date"] == day, "run_id"].iloc[0]
-st.sidebar.markdown("[How it works (GitHub)](https://github.com/Haroradk/tape-watch)")
+st.sidebar.markdown("[How it works (GitHub)](https://github.com/Haroradk/Surveillance-tape)")
 
 briefing = query("""
     SELECT status, model, headline, summary, data_notes, evidence FROM gold.daily_briefings
