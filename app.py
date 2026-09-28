@@ -1,5 +1,5 @@
 """
-tape-watch dashboard: the daily surveillance briefing for BTC and ETH.
+Surveillance tape dashboard: the daily surveillance briefing for BTC and ETH.
 
 Reads only what the daily job publishes - gold (briefings), ops (incidents,
 the audit log) and silver bars for the chart - always via the *official* run
@@ -27,7 +27,7 @@ except Exception:
 
 import config
 
-st.set_page_config(page_title="tape-watch", page_icon="\U0001F4C8", layout="wide")
+st.set_page_config(page_title="Surveillance tape", page_icon="\U0001F4C8", layout="wide")
 
 PLOTLY_CONFIG = {"scrollZoom": True, "displaylogo": False}
 SYMBOL_COLORS = {"BTCUSDT": "#00412D", "ETHUSDT": "#4B1932"}
@@ -61,7 +61,7 @@ if days.empty:
     st.warning("No processed days yet - the daily job hasn't run.")
     st.stop()
 
-st.sidebar.title("tape-watch")
+st.sidebar.title("Surveillance tape")
 st.sidebar.caption("Daily market surveillance for BTC and ETH on Binance spot. "
                    "A learning project: it detects and explains moves, and never suggests trades.")
 labels = {d: f"{pd.Timestamp(d):%a %d %b %Y} · {n} incident{'s' if n != 1 else ''}"

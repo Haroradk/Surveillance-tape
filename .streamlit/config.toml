@@ -7,3 +7,7 @@ backgroundColor = "#FFFFFF"
 secondaryBackgroundColor = "#F5F0F0"
 textColor = "#00412D"
 font = "sans serif"
+
+# TEMPORARY: show full error messages to diagnose a Streamlit Cloud-only error.
+[client]
+showErrorDetails = "full"
