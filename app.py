@@ -89,7 +89,7 @@ bars = query("""
 
 # ---------------------------------------------------------------- briefing
 
-tab_day, tab_week = st.tabs(["Daily briefing", "Pipeline"])
+tab_day, tab_week, tab_research = st.tabs(["Daily briefing", "Pipeline", "Research (history only)"])
 
 with tab_day:
     if briefing.empty:
@@ -192,3 +192,53 @@ with tab_week:
         SELECT called_at, trade_date AS day, model, status, prompt_chars, output_chars
         FROM ops.llm_calls ORDER BY called_at DESC LIMIT 30
     """), use_container_width=True, hide_index=True)
+
+
+# ---------------------------------------------------------------- research
+
+with tab_research:
+    res = query("SELECT * FROM gold.signal_research WHERE version = (SELECT max(version) FROM gold.signal_research)")
+    st.subheader("Do the alerts predict what happens next?")
+    st.warning("A historical study, not a signal. Nothing here is live, and this project never trades. "
+               "It is a frozen snapshot, re-run by hand, because re-testing on growing data quietly moves the goalposts.")
+    if res.empty:
+        st.info("No research snapshot published yet.")
+    else:
+        m = res.iloc[0]
+        st.caption(f"{m['n_days']} days ({pd.Timestamp(m['first_day']):%d %b} to {pd.Timestamp(m['last_day']):%d %b %Y}), "
+                   f"{m['n_alerts']} alerts. Discovery = days before {pd.Timestamp(m['split_day']):%d %b}, used to look for "
+                   "patterns; holdout = the days after, used only to check them. Returns start the minute after the "
+                   "pipeline detected the alert, so there is no look-ahead.")
+        RULE = {"volume_burst": "Volume burst", "one_sided_flow": "One-sided flow", "price_shock": "Price shock"}
+
+        st.markdown("#### 1. Size: moves after an alert are 2-3.5x bigger than normal")
+        size = res[(res["question"] == "size") & (res["horizon_min"] == 60)]
+        fig = go.Figure()
+        for ds, color in (("discovery", "#00412D"), ("holdout", "#4B1932")):
+            d = size[size["dataset"] == ds]
+            fig.add_bar(name=f"After alert ({ds})", x=[RULE[r] for r in d["rule"]], y=d["value"], marker_color=color)
+        ctl = size.groupby("rule")["control"].mean()
+        fig.add_bar(name="Normal (same hour, other days)", x=[RULE[r] for r in ctl.index], y=ctl.values, marker_color="#B8B8B8")
+        fig.update_layout(barmode="group", height=320, margin=dict(t=10, b=10, l=10, r=10),
+                          yaxis_title="Average absolute move over 60 min (%)", legend=dict(orientation="h", y=1.15))
+        st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG)
+        st.caption("The pattern holds on the holdout days: volatility clusters, so a burst is followed by more movement.")
+
+        def table(q):
+            d = res[res["question"] == q].sort_values(["dataset", "horizon_min"])
+            return pd.DataFrame({"Set": d["dataset"], "Minutes after": d["horizon_min"], "Events": d["n"],
+                                 "Avg return (%)": d["value"].round(3),
+                                 "95% interval": [f"[{a:.3f}, {b:.3f}]" for a, b in zip(d["ci_lo"], d["ci_hi"])],
+                                 "Right direction (%)": d["hit_rate"].round(0)})
+
+        st.markdown("#### 2. Direction: which way the flow points tells you nothing")
+        st.caption("After one-sided flow, average return in the direction the flow pointed. Every interval includes 0.")
+        st.dataframe(table("direction"), use_container_width=True, hide_index=True)
+
+        st.markdown("#### 3. After a price shock: momentum that vanished")
+        st.caption("Average return in the shock's direction. In the discovery days it looked like momentum "
+                   f"(+0.16% after 60 min); on the holdout it reversed. That is overfitting, caught by the holdout.")
+        st.dataframe(table("shock"), use_container_width=True, hide_index=True)
+
+        st.info(f"Cost check: a round trip of fees costs about {m['cost_pct']}%. Any average below that, or an interval "
+                "that includes 0, is not an edge. The alerts say how much things will move, never which way.")

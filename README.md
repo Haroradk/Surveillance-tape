@@ -447,3 +447,9 @@ src/rules.py         features, rule engine (edge-triggered alerts), incident man
 src/reference.py     daily reference profile from Binance 1m klines; bars-vs-klines reconciliation
 scripts/lateness_experiment.py   lateness sweep vs hindsight truth
 ```
+
+## Research tab
+
+The dashboard's "Research (history only)" tab shows the signal-research results from a frozen snapshot in
+`gold.signal_research`. Publish a new dated snapshot by hand with `python scripts/export_research.py`
+(runs the study on the local 61-day backfill, writes to MotherDuck). It is deliberately not part of the daily job.

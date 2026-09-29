@@ -171,5 +171,51 @@ def main() -> None:
           "a confidence interval that includes 0, is not an edge.")
 
 
+def tidy(con) -> tuple[pd.DataFrame, dict]:
+    """The same study as main(), as one tidy table (for the dashboard) plus its metadata."""
+    runs, bars, alerts = load(con)
+    days = sorted(runs["trade_date"])
+    split = days[int(len(days) * 2 / 3)]
+    rows = []
+
+    def sets(ev):
+        return (("discovery", ev[ev["trade_date"] < split]), ("holdout", ev[ev["trade_date"] >= split]))
+
+    for rule in ("volume_burst", "one_sided_flow", "price_shock"):
+        ev = event_table(bars, alerts, rule)
+        if ev.empty:
+            continue
+        for label, part in sets(ev):
+            if part.empty:
+                continue
+            ctl = pd.concat([forward_returns(bars, sym, controls(bars, alerts, sym, g["entry"]).rename("entry"))
+                             for sym, g in part.groupby("symbol")])
+            for h in HORIZONS:
+                e = np.abs(part[f"ret_{h}m"].to_numpy())
+                c = np.abs(ctl[f"ret_{h}m"].to_numpy())
+                lo, hi = bootstrap_ci(e)
+                rows.append(dict(question="size", rule=rule, dataset=label, horizon_min=h,
+                                 n=int(np.sum(~np.isnan(e))), value=float(np.nanmean(e)),
+                                 control=float(np.nanmean(c)), ci_lo=lo, ci_hi=hi, hit_rate=None))
+    for question, rule, sig in (("direction", "one_sided_flow", lambda e: np.where(e["sell_share"] < 0.5, 1, -1)),
+                                ("shock", "price_shock", lambda e: np.sign(e["ret_60_at_alert"]))):
+        ev = event_table(bars, alerts, rule)
+        if ev.empty:
+            continue
+        ev["signal"] = sig(ev)
+        for label, part in sets(ev):
+            for h in HORIZONS:
+                x = (part["signal"] * part[f"ret_{h}m"]).to_numpy()
+                if np.sum(~np.isnan(x)) == 0:
+                    continue
+                lo, hi = bootstrap_ci(x)
+                rows.append(dict(question=question, rule=rule, dataset=label, horizon_min=h,
+                                 n=int(np.sum(~np.isnan(x))), value=float(np.nanmean(x)), control=None,
+                                 ci_lo=lo, ci_hi=hi, hit_rate=float(np.nanmean(x > 0) * 100)))
+    meta = dict(first_day=str(days[0]), last_day=str(days[-1]), n_days=len(days), split_day=str(split),
+                n_alerts=len(alerts), cost_pct=ROUND_TRIP_COST_PCT)
+    return pd.DataFrame(rows), meta
+
+
 if __name__ == "__main__":
     main()
